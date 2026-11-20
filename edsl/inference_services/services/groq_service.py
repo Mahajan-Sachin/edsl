@@ -24,6 +24,20 @@ class GroqService(OpenAIService):
     _models_list_cache: List[str] = []
 
     @classmethod
+    def async_client(cls, api_key, base_url=None):
+        cls._resolve_clients()
+        resolved_base_url = base_url if base_url is not None else cls._base_url_
+        cache_key = (api_key, resolved_base_url)
+        if cache_key not in cls._async_client_instances:
+            client = cls._async_client_(
+                api_key=api_key,
+                base_url=resolved_base_url,
+            )
+            cls._async_client_instances[cache_key] = client
+        client = cls._async_client_instances[cache_key]
+        return client
+
+    @classmethod
     def _is_reasoning_model(cls, model_name: str) -> bool:
         name = model_name.lower()
         return any(
