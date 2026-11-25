@@ -83,6 +83,7 @@ _INTERNAL_KWARGS = frozenset(
         "fail_at_number",
         "never_ending",
         "prompt_plan",
+        "has_custom_token_limit",
         "base_url",
         "api_key_env",
     }
@@ -253,6 +254,13 @@ class LanguageModel(
         )
 
         supplied = kwargs.get("parameters", kwargs)
+        has_custom_token_limit = kwargs.get("has_custom_token_limit")
+        if has_custom_token_limit is not None:
+            self._has_custom_token_limit = bool(has_custom_token_limit)
+        else:
+            self._has_custom_token_limit = any(
+                name in supplied for name in TOKEN_LIMIT_PARAMETERS
+            )
         if self._inference_service_ != "test":
             for name in TOKEN_LIMIT_PARAMETERS:
                 if name in parameters and name not in supplied:
@@ -319,6 +327,18 @@ class LanguageModel(
         ):
             if test_param in kwargs and kwargs[test_param]:
                 self.parameters[test_param] = kwargs[test_param]
+
+        self._initialized = True
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if getattr(self, "_initialized", False):
+            from .output_token_policy import TOKEN_LIMIT_PARAMETERS
+
+            if name in TOKEN_LIMIT_PARAMETERS:
+                self._has_custom_token_limit = True
+                if hasattr(self, "parameters") and isinstance(self.parameters, dict):
+                    self.parameters[name] = value
+        super().__setattr__(name, value)
 
     def _set_key_lookup(self, key_lookup: Optional["KeyLookup"] = None) -> "KeyLookup":
         """Set up the API key lookup mechanism.
@@ -1282,6 +1302,8 @@ class LanguageModel(
             "parameters": parameters,
             "inference_service": self._inference_service_,
         }
+        if hasattr(self, "_has_custom_token_limit"):
+            d["has_custom_token_limit"] = self._has_custom_token_limit
 
         connection = {}
         if getattr(self, "base_url", None):

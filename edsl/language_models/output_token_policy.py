@@ -8,7 +8,7 @@ import re
 import warnings
 
 REASONING_OUTPUT_TOKENS = 16_000
-DEFAULT_OUTPUT_TOKENS = 2_000
+DEFAULT_OUTPUT_TOKENS = 4_096
 LOW_REASONING_OUTPUT_TOKENS = 4_000
 TOKEN_LIMIT_PARAMETERS = ("max_tokens", "maxOutputTokens", "max_output_tokens")
 _UNSET = object()

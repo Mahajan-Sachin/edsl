@@ -14,6 +14,23 @@ from .question_base import QuestionBase
 from .question_free_text import FreeTextResponse, FreeTextResponseValidator
 from .decorators import inject_exception
 
+THINKING_MAX_TOKENS = 8192
+
+
+def _apply_thinking_token_limit(model, limit: int = THINKING_MAX_TOKENS) -> None:
+    if getattr(model, "_inference_service_", None) == "test" or getattr(model, "model", None) == "test":
+        return
+    from ..language_models.output_token_policy import TOKEN_LIMIT_PARAMETERS
+
+    token_param = next(
+        (name for name in TOKEN_LIMIT_PARAMETERS if hasattr(model, "parameters") and isinstance(model.parameters, dict) and name in model.parameters),
+        "max_tokens",
+    )
+    if hasattr(model, "parameters") and isinstance(model.parameters, dict):
+        model.parameters[token_param] = limit
+    if hasattr(model, token_param):
+        setattr(model, token_param, limit)
+
 
 class QuestionThinking(QuestionBase):
     """A question that sends question_text directly to a specified model.
@@ -52,13 +69,20 @@ class QuestionThinking(QuestionBase):
         self.question_presentation = question_presentation
 
         if model is None:
-            self._model = Model()
+            self._model = Model(max_tokens=THINKING_MAX_TOKENS)
         elif isinstance(model, str):
-            self._model = Model(model)
+            if model == "test":
+                self._model = Model("test")
+            else:
+                self._model = Model(model, max_tokens=THINKING_MAX_TOKENS)
         elif isinstance(model, dict):
             self._model = LanguageModel.from_dict(model)
+            if not getattr(self._model, "_has_custom_token_limit", False):
+                _apply_thinking_token_limit(self._model, THINKING_MAX_TOKENS)
         else:
-            self._model = model
+            self._model = copy.deepcopy(model)
+            if not getattr(self._model, "_has_custom_token_limit", False):
+                _apply_thinking_token_limit(self._model, THINKING_MAX_TOKENS)
 
     @property
     def _invigilator_class(self):
@@ -125,13 +149,20 @@ def thinking_question(q: "QuestionBase", model=None, system_prompt: str = "") ->
 
     # Resolve the model
     if model is None:
-        resolved_model = Model()
+        resolved_model = Model(max_tokens=THINKING_MAX_TOKENS)
     elif isinstance(model, str):
-        resolved_model = Model(model)
+        if model == "test":
+            resolved_model = Model("test")
+        else:
+            resolved_model = Model(model, max_tokens=THINKING_MAX_TOKENS)
     elif isinstance(model, dict):
         resolved_model = LanguageModel.from_dict(model)
+        if not getattr(resolved_model, "_has_custom_token_limit", False):
+            _apply_thinking_token_limit(resolved_model, THINKING_MAX_TOKENS)
     else:
-        resolved_model = model
+        resolved_model = copy.deepcopy(model)
+        if not getattr(resolved_model, "_has_custom_token_limit", False):
+            _apply_thinking_token_limit(resolved_model, THINKING_MAX_TOKENS)
 
     new_q._model = resolved_model
     new_q._system_prompt = system_prompt

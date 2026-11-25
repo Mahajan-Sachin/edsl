@@ -35,7 +35,7 @@ def test_reasoning_defaults_across_services(service, name):
 
 def test_unknown_model_has_conservative_inspectable_policy():
     model = DeepInfraService.create_model("unknown/model")(skip_api_key_check=True)
-    assert model.max_tokens == 2000
+    assert model.max_tokens == 4096
     assert model_token_policy(model)["reasoning"] is None
     assert not token_limit_warnings([model])
     assert reasoning_capability("gpt-4o-mini") is False

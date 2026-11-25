@@ -21,7 +21,13 @@ def offline(monkeypatch):
     monkeypatch.setattr(LanguageModel, "_set_key_lookup", lambda *a, **kw: {})
     monkeypatch.setattr("edsl.coop.Coop.report_error", AsyncMock())
 
-    def unexpected_network(*args, **kwargs):
+    import socket
+    original_connect = socket.socket.connect
+
+    def unexpected_network(self, address, *args, **kwargs):
+        host = address[0] if isinstance(address, (tuple, list)) and address else address
+        if host in ("127.0.0.1", "localhost", "::1"):
+            return original_connect(self, address, *args, **kwargs)
         pytest.fail("These adapter tests must not access the network")
 
     monkeypatch.setattr("socket.socket.connect", unexpected_network)
@@ -120,7 +126,7 @@ def test_unspecified_effort_and_defaults(monkeypatch, service, name, options):
         assert params.get("reasoning") == (
             {"summary": "auto", "effort": "high"} if known_reasoning else None
         )
-        assert params["max_output_tokens"] == (2000 if name == "gpt-4o" else 16000)
+        assert params["max_output_tokens"] == (4096 if name == "gpt-4o" else 16000)
     if not known_reasoning:
         assert "reasoning_effort" not in params
         assert "reasoning" not in params

@@ -154,7 +154,7 @@ class AnthropicService(InferenceServiceABC):
                 "max_tokens": 16000 if (
                     cls._supports_adaptive_thinking(model_name)
                     or cls._supports_manual_thinking(model_name)
-                ) else 1000,
+                ) else 4096,
                 "top_p": 1,
                 "frequency_penalty": 0,
                 "presence_penalty": 0,
